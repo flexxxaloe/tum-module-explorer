@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "courses_tum_node_semester_unique" ON "courses" USING btree ("tum_node_id","semester");
