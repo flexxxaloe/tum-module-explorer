@@ -13,10 +13,6 @@
     import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import SaveCourseButton from '$lib/components/SaveCourseButton.svelte';
     
-    
-
-    let isRefreshing = $state(false);
-    let refreshMessage = $state('');
     let { data }: PageProps = $props();
     
     const ectsOptions = Array.from({ length: 10 }, (_, i) => i + 1); // (_, i) элемент и его индекс
@@ -108,41 +104,9 @@
         </label>
 
         <button type="submit">Search</button>
-        <button
-        type="button"
-        disabled={isRefreshing}
-            onclick={async () => {
-                isRefreshing = true;
-                refreshMessage = '';
-
-                try {
-                    const response = await fetch('/api/sync', {
-                        method: 'POST'
-                    });
-
-                    if (!response.ok) {
-                        throw new Error();
-                    }
-
-                    refreshMessage = 'Data updated';
-                } catch {
-                    refreshMessage = 'Update failed';
-                } finally {
-                    isRefreshing = false;
-                }
-            }}
-        >
-            {isRefreshing ? 'Refreshing...' : 'Refresh data'}
-        </button>
 
         <input name="search" placeholder="Search for a course" />
     </div>
-
-    {#if refreshMessage}
-        <div class="refresh-status">
-            {refreshMessage}
-        </div>
-    {/if}
 </form>
 
 <table id="courses-table">

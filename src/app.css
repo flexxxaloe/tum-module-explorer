@@ -62,7 +62,7 @@ h1 {
     display: flex;
     align-items: center;
     gap: 18px;
-    flex-wrap: wrap;
+    flex-wrap: wrap; /* переносить объекты*/
 }
 
 .refresh-status {
