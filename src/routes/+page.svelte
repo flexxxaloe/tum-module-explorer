@@ -1,18 +1,30 @@
 <script lang="ts">
     import type { PageProps } from './$types';
+
+
+    import { SavedCoursesStore } from '$lib/savedCourses.svelte';
+    import { getContext } from 'svelte';
+
+    const store = getContext<SavedCoursesStore>('savedCourses');
+
     import { goto } from '$app/navigation';
     import { resolve } from '$app/paths';
     import { page } from '$app/state';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import SaveCourseButton from '$lib/components/SaveCourseButton.svelte';
+    
+    
 
     let isRefreshing = $state(false);
     let refreshMessage = $state('');
     let { data }: PageProps = $props();
     
-    const ectsOptions = Array.from({ length: 20 }, (_, i) => i + 1); // (_, i) элемент и его индекс
+    const ectsOptions = Array.from({ length: 10 }, (_, i) => i + 1); // (_, i) элемент и его индекс
     
     
-    let selectedEcts = $state(Number(data.ectsParam ?? 5));
+    let selectedEcts = $state<number | string>(
+        data.ectsParam ? Number(data.ectsParam) : ''
+    );
     let categoryTypes = $state(['Practical Course', 'Seminar Course', 'Elective Modules', 'Support Electives', 'Theory Modules']);
     let selectedCourseType = $state(data.categoryParam ?? 'Elective Modules');
 
@@ -78,6 +90,7 @@
         <label for="ects">
             Choose number of ECTS:
             <select id="ects" name="ects_number" bind:value={selectedEcts}>
+                <option value="">All ects</option>
                 {#each ectsOptions as ects (ects)}
                     <option value={ects}>{ects}</option>
                 {/each}
@@ -138,6 +151,7 @@
             <th>Area</th>
             <th>Title</th>
             <th class="ects-column">ECTS</th>
+            <th>Save</th>
         </tr>
     </thead>
 
@@ -151,6 +165,16 @@
                     </a>
                 </td>
                 <td class="course-ects">{course.ects ?? '-'}</td>
+                <td>
+                    <SaveCourseButton
+                        course = {{
+                            id: course.id,
+                            title: course.title,
+                            ects: course.ects ?? null
+                        }}
+                        store={store}
+                    />
+                </td>
             </tr>
         {/each}
     </tbody>
