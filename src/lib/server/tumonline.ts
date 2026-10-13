@@ -14,7 +14,7 @@ export async function getRootNodeId(fetchFn: typeof fetch, title: string) {
 
     const showSpoTreeUrl = BASE + 'wbstpcs.showSpoTree?pStStudiumNr=&pStpStpNr=5217&pSjNr=1623';
     
-    const response = await fetchFn(showSpoTreeUrl);
+    const response = await fetchWithRetry(fetchFn, showSpoTreeUrl);
 	const html = await response.text();
 
 	const $ = cheerio.load(html);
@@ -59,7 +59,7 @@ export async function getChildren(fetchFn: typeof fetch, nodeId: string) {
         '&pStartSemester=';
 
 
-    const response = await fetchFn(url);
+    const response = await fetchWithRetry(fetchFn, url);
 	const xml = await response.text();
 
 
@@ -148,7 +148,7 @@ export async function getNodeDetails(fetchFn: typeof fetch, nodeId: string) {
         `&pStpKnotenNr=${nodeId}` +
         `&pRootKnotenNr=${nodeId}`;
 
-    const response = await fetchFn(url, {
+    const response = await fetchWithRetry(fetchFn, url, {
         headers: {
             Accept: 'CALLBACK',
             'X-Requested-With': 'XMLHttpRequest',
@@ -212,7 +212,7 @@ function getEnglishText(field?: LocalizedText | null): string | null {
 export async function getCourseDescription(courseId: string, fetchFn: typeof fetch) {
     const url = `https://campus.tum.de/tumonline/ee/rest/slc.tm.cp/student/courses/${courseId}`;
 
-    const response = await fetchFn(url, {
+    const response = await fetchWithRetry(fetchFn, url, {
         headers: {
             Accept: 'application/json'
         }
@@ -242,3 +242,39 @@ export async function getCourseDescription(courseId: string, fetchFn: typeof fet
     };
 
 }
+
+
+async function fetchWithRetry(
+    fetchFn: typeof fetch,
+    url: string,
+    options?: RequestInit
+): Promise<Response> {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            const response = await fetchFn(url, options);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            return response;
+        } catch (error) {
+            console.error(
+                `Request failed (attempt ${attempt}/3):`,
+                url,
+                error
+            );
+
+            if (attempt === 3) {
+                throw error;
+            }
+
+            await new Promise(resolve =>
+                setTimeout(resolve, attempt * 1000)
+            );
+        }
+    }
+
+    throw new Error('Unexpected fetch failure');
+}
+
