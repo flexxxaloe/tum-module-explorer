@@ -3,6 +3,16 @@
     import { resolve } from '$app/paths';
     import { page } from '$app/state';
 
+    import { getContext } from 'svelte';
+    import type { SavedCoursesStore } from '$lib/savedCourses.svelte';
+    import SaveCourseButton from '$lib/components/SaveCourseButton.svelte';
+
+    const store = getContext<SavedCoursesStore>('savedCourses');
+
+    const fromSaved = $derived(
+        page.url.searchParams.get('from') === 'saved'
+    );
+
     let {data}: PageProps = $props();
 
     const sections =[
@@ -23,7 +33,14 @@
 <main>
 
     <!-- searchParams с карточки курса — те же фильтры и страница, с которыми её открыли -->
-    <a class="back-button"  href={resolve(`/?${page.url.searchParams.toString()}`)}>← Course List</a>
+    <a
+        class="back-button"
+        href={fromSaved
+            ? resolve('/my-courses')
+            : resolve(`/?${page.url.searchParams.toString()}`)}
+    >
+        ← {fromSaved ? 'My Courses' : 'Course List'}
+    </a>
     <header class="course-header">
         <div class="badges">
 
@@ -42,6 +59,14 @@
                 Open in TUMonline ↗
             </a>
         {/if}
+        <SaveCourseButton
+            course={{
+                id: data.course.id,
+                title: data.course.title,
+                ects: data.course.ects ?? null
+            }}
+            {store}
+        />
     </header>
     <div class="info-grid">
         {#each sections as section (section.key)}
@@ -80,7 +105,7 @@
     }
 
     .description {
-        white-space: pre-wrap;
+        white-space: pre-wrap; /* Определяет, как отображаются пробелы и переносы строк в тексте. */
         line-height: 1.7;
         margin: 0;
     }

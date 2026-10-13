@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ url }) => {
         url.searchParams.get('category_type') ?? 'Elective Modules';
 
     const ectsParam =
-        url.searchParams.get('ects_number') ?? '5';
+        url.searchParams.get('ects_number');
 
     const pageParam = Number(url.searchParams.get('page') ?? '1');
     const page = Number.isFinite(pageParam) && pageParam > 0
@@ -38,9 +38,7 @@ export const load: PageServerLoad = async ({ url }) => {
     
 
     const selectedEcts =
-        ectsParam !== null
-            ? Number(ectsParam)
-            : null;
+        ectsParam ? Number(ectsParam) : undefined;
 
     const filters = [
         eq(courses.semester, '2026/27'),
@@ -71,7 +69,7 @@ export const load: PageServerLoad = async ({ url }) => {
             eq(courses.category, selectedCategory)
         );
 
-        if (selectedEcts !== null) {
+        if (selectedEcts !== undefined) {
             filters.push(
                 eq(courses.ects, selectedEcts)
             );
