@@ -174,17 +174,30 @@ export async function getNodeDetails(fetchFn: typeof fetch, nodeId: string) {
 
     const courseUrl = courseLink ? new URL(courseLink, BASE).toString() : null;
     
-    const text = $('body')
-        .text()
-        .replace(/\s+/g, ' ')
-        .trim();
+    const courses = $(`a[href*="pages/slc.tm.cp/course/"]`).map(
+        (_, element) => {
+            const link = $(element);
 
-    const exists = !text.includes('Keine Einträge vorhanden');
+            const text = link.text().trim();
+            const href = link.attr('href');
+
+            const semester = text.match(/\b\d{2}[WS]\b/)?.[0] ?? null;
+
+            return {
+                semester,
+                courseUrl: href ? new URL(href, BASE).toString() : null
+            }
+            
+        }
+    ).get();
+
+    const exists = courses.length > 0;
 
     return {
         nodeId,
         exists,
-        courseUrl
+        courseUrl,
+        courses
     };
 
 }
