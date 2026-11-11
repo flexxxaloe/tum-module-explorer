@@ -1,8 +1,14 @@
 import { getRootNodeId, getChildren, getNodeDetails, getCourseDescription } from './tumonline';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
 import { db } from './db';
-import { courses } from './db/schema';
+import { courses, offerings } from './db/schema';
 import { CATEGORY_TITLES, CATEGORY_ECTS, type Category } from '$lib/types/course';
+
+
+type Offerings = {
+    semester: string | null;
+    courseUrl: string | null;
+};
 
 type Course = {
     nodeId: string;
@@ -12,7 +18,9 @@ type Course = {
     courseUrl: string | null;
     categoryPath?: string;
     category: Category;
+    offerings: Offerings[];
 };
+
 
 async function fetchCoursesFromTum(
     fetchFn: typeof fetch,
@@ -57,7 +65,8 @@ async function fetchCoursesFromTum(
                     ects: CATEGORY_ECTS[selectedCategory] ?? course.ects,
                     category: selectedCategory,
                     categoryPath: selectedCategory,
-                    courseUrl: details.courseUrl
+                    courseUrl: details.courseUrl,
+                    offerings: details.courses
                 });
             }
         }
@@ -128,6 +137,8 @@ async function fetchCoursesFromTum(
                 child => child.nodeType === 120
             );
 
+            const offerings: Offerings[] = [];
+
             for (const courseNode of courseNodes) {
                 const details = await getNodeDetails(
                     fetchFn,
@@ -135,14 +146,19 @@ async function fetchCoursesFromTum(
                 );
 
                 if (details.exists) {
-                    availableCourses.push({
-                        ...module,
-                        category: selectedCategory,
-                        courseUrl: details.courseUrl
-                    });
-
-                    break;
+                    offerings.push(...details.courses);
                 }
+            }
+            
+            if (offerings.length > 0) {
+                availableCourses.push({
+                    ...module,
+                    category: selectedCategory,
+                    courseUrl: offerings[0].courseUrl,
+                    offerings
+                });
+
+                
             }
         }
     }
@@ -208,6 +224,8 @@ async function fetchCoursesFromTum(
                 child => child.nodeType === 120
             );
 
+            const offerings: Offerings[] = [];
+
             for (const courseNode of courseNodes) {
                 const details = await getNodeDetails(
                     fetchFn,
@@ -215,14 +233,17 @@ async function fetchCoursesFromTum(
                 );
 
                 if (details.exists) {
-                    availableCourses.push({
-                        ...module,
-                        category: selectedCategory,
-                        courseUrl: details.courseUrl
-                    });
-
-                    break;
+                    offerings.push(...details.courses);
                 }
+            }
+            
+            if (offerings.length > 0) {
+                availableCourses.push({
+                    ...module,
+                    category: selectedCategory,
+                    courseUrl: offerings[0].courseUrl,
+                    offerings
+                });
             }
         }
     }
@@ -254,7 +275,7 @@ export async function syncCoursesToDb(
         return;
     }
 
-    const rows = [];
+    const rows: (typeof courses.$inferInsert)[] = [];
 
     for (const course of tumCourses) {
         // .../course/950970258 — id описания для REST, не tumNodeId из дерева.
@@ -289,30 +310,62 @@ export async function syncCoursesToDb(
     }
 
     try {
-    await db
-    .insert(courses)
-    .values(
-        rows
-    )
-    .onConflictDoUpdate({
-        target: [courses.tumNodeId, courses.semester],
-        // excluded — строка, которую только что пытались вставить, не старая запись в таблице.
-        set: {
-            title: sql`excluded.title`,
-            ects: sql`excluded.ects`,
-            category: sql`excluded.category`,
-            categoryPath: sql`excluded.category_path`,
-            courseUrl: sql`excluded.course_url`,
-            available: true,
+        await db.transaction(async(tx) => {
+            const savedCourses = await tx
+                .insert(courses)
+                .values(
+                    rows
+                )
+                .onConflictDoUpdate({
+                    target: [courses.tumNodeId, courses.semester],
+                    // excluded — строка, которую только что пытались вставить, не старая запись в таблице.
+                    set: {
+                        title: sql`excluded.title`,
+                        ects: sql`excluded.ects`,
+                        category: sql`excluded.category`,
+                        categoryPath: sql`excluded.category_path`,
+                        courseUrl: sql`excluded.course_url`,
+                        available: true,
 
-            content: sql`excluded.content`,
-            previousKnowledge: sql`excluded.previous_knowledge`,
-            objective: sql`excluded.objective`,
-            teachingMethod: sql`excluded.teaching_method`,
-            registration: sql`excluded.registration`,
-            note: sql`excluded.note`
-        }
-    });
+                        content: sql`excluded.content`,
+                        previousKnowledge: sql`excluded.previous_knowledge`,
+                        objective: sql`excluded.objective`,
+                        teachingMethod: sql`excluded.teaching_method`,
+                        registration: sql`excluded.registration`,
+                        note: sql`excluded.note`
+                    }
+                })
+                .returning({
+                    id: courses.id,
+                    tumNodeId: courses.tumNodeId  
+                });
+
+            for (const savedCourse of savedCourses) {
+                const course = tumCourses.find(
+                    c => c.nodeId === savedCourse.tumNodeId
+                );
+
+                if (!course) continue;
+
+                await tx.delete(offerings).where(eq(offerings.courseId, savedCourse.id));
+
+                const offeringsRows = course.offerings.map(offering => {
+                    if (offering.semester === null || offering.courseUrl === null) {
+                        throw new Error(`Invalid offering for ${course.title}`);
+                    }
+
+                    return {
+                        courseId: savedCourse.id,
+                        semester: offering.semester,
+                        courseUrl: offering.courseUrl
+                    };
+                });
+
+                if (offeringsRows.length > 0) {
+                    await tx.insert(offerings).values(offeringsRows);
+                }
+            }
+        });
     } catch (error) {
         const cause = error instanceof Error ? error.cause : null;
 

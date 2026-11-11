@@ -1,4 +1,5 @@
 import {
+    foreignKey,
     pgTable,
     serial,
     text,
@@ -36,5 +37,22 @@ export const courses = pgTable('courses', {
         uniqueIndex(
             'courses_tum_node_semester_unique'
         ).on(table.tumNodeId, table.semester)
+    ]
+);
+
+export const offerings = pgTable('offerings', {
+    id: serial('id').primaryKey(),
+    courseId: integer('course_id'),
+
+
+    semester: text('semester').notNull(),
+    courseUrl: text('course_url').notNull(),
+
+
+}, (table) => [
+        foreignKey({
+            columns: [table.courseId],
+            foreignColumns: [courses.id]
+        }).onDelete('cascade')
     ]
 );
