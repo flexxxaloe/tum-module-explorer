@@ -26,7 +26,11 @@
 
     let searchParam = $state(data.searchParam ?? '');
 
+    const semesterOptions = ['26W', '27S'];
+    let selectedSemester = $state(data.selectedSemester ?? '26W');
+
     const currentPage = $derived(data.page ?? 1);
+    // $derived — формула от других значений: её никто не присваивает, Svelte пересчитывает её, когда меняется то, от чего она зависит.
     
     const totalPages = $derived(
     Math.ceil((data.totalCourses ?? 0) / (data.pageSize ?? 20))
@@ -39,6 +43,8 @@
         params.set('category_type', selectedCourseType);
         params.set('ects_number', String(selectedEcts));
         params.set('page', String(page));
+
+        params.set('semester', selectedSemester);
         
         // Пустую строку и пробелы в URL не кладём: для сервера это то же, что параметра нет.
         if (searchParam.trim()) {
@@ -82,7 +88,13 @@
 <h1>Modules of Master Computer Science</h1> 
 <form method="GET" class="search">
     <div class="search-controls">
-        <span>WS 26/27 </span>
+        <label>
+            <select id="semester" name="semester" bind:value={selectedSemester}>
+                {#each semesterOptions as semester (semester)}
+                    <option value={semester}>{semester}</option>
+                {/each}
+            </select>
+        </label>
         <label for="ects">
             Choose number of ECTS:
             <select id="ects" name="ects_number" bind:value={selectedEcts}>
