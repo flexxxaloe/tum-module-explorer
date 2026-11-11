@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { courses } from '$lib/server/db/schema';
-import { and, count, eq, or, ilike } from 'drizzle-orm';
+import { courses, offerings } from '$lib/server/db/schema';
+import { and, count, eq, or, ilike, exists } from 'drizzle-orm';
 import {
     CATEGORY_TITLES,
     type Category,
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ url }) => {
     const searchParam = url.searchParams.get('search') ?? '';
     const pageSize = 20;
 
-    
+    const selectedSemester = url.searchParams.get('semester') ?? '26W';
 
     // Theory Modules в базе нет. Это срез Elective Modules по пути категории.
     // Незнакомое значение category_type откатывается на Practical Course, не на элективы.
@@ -76,6 +76,16 @@ export const load: PageServerLoad = async ({ url }) => {
         }
     }
 
+    filters.push(
+        exists(
+            db.select()
+                .from(offerings)
+                .where(and(
+                    eq(offerings.courseId, courses.id),
+                    eq(offerings.semester, selectedSemester)
+                ))
+        )
+    );
 
     const result = await db
         .select()
@@ -100,7 +110,8 @@ export const load: PageServerLoad = async ({ url }) => {
         pageSize,
         categoryParam,
         ectsParam,
-        searchParam
+        searchParam,
+        selectedSemester
     };
 };
 
