@@ -72,15 +72,15 @@ h1 {
     color: #70558f;
 }
 
-.search-controls > span {
-    padding: 7px 12px;
 
-    border-radius: 7px;
+#semester {
+    field-sizing: content;
+    min-width: 0;
+    padding: 7px 8px 7px 8px;
+
+    border-color: transparent;
     background: #f0ebf7;
-
     color: #70558f;
-
-    font-size: 14px;
     font-weight: 600;
 }
 
